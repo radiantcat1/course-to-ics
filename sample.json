@@ -1,0 +1,14 @@
+{
+  "semesterStart": "2026-09-07",
+  "courses": [
+    {
+      "title": "Data Structures",
+      "dayOfWeek": 1,
+      "startPeriod": 1,
+      "endPeriod": 2,
+      "weeks": 16,
+      "location": "Building A-301",
+      "teacher": "Prof. Zhang"
+    }
+  ]
+}

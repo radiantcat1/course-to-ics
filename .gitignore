@@ -1,0 +1,6 @@
+target/
+.idea/
+*.iml
+timetable.ics
+*.log
+.DS_Store
