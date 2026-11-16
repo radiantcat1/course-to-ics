@@ -15,7 +15,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class IcsServiceTest {
 
-    private final IcsService service = new IcsService();
+    private final IcsService service =
+            new IcsService(new com.radiantcat1.course2ics.config.CourseProperties());
 
     private CourseRequest req(CourseItem... items) {
         return new CourseRequest(LocalDate.of(2026, 9, 7), List.of(items));

@@ -2,6 +2,7 @@ package com.radiantcat1.course2ics.service;
 
 import com.radiantcat1.course2ics.common.BizException;
 import com.radiantcat1.course2ics.common.ErrorCode;
+import com.radiantcat1.course2ics.config.CourseProperties;
 import com.radiantcat1.course2ics.dto.CourseItem;
 import com.radiantcat1.course2ics.dto.CourseRequest;
 import java.nio.charset.StandardCharsets;
@@ -15,19 +16,16 @@ import org.springframework.stereotype.Service;
 @Service
 public class IcsService {
 
-    private static final String[] PERIOD_START = {
-            "08:00", "08:55", "10:00", "10:55", "14:00",
-            "14:55", "16:00", "16:55", "19:00", "19:55"
-    };
-    private static final String[] PERIOD_END = {
-            "08:45", "09:40", "10:45", "11:40", "14:45",
-            "15:40", "16:45", "17:40", "19:45", "20:40"
-    };
     private static final DateTimeFormatter TIME_FMT =
             DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss");
     private static final DateTimeFormatter STAMP_FMT =
             DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'");
-    private static final String TZID = "Asia/Shanghai";
+
+    private final CourseProperties props;
+
+    public IcsService(CourseProperties props) {
+        this.props = props;
+    }
 
     public String generate(CourseRequest request) {
         StringBuilder sb = new StringBuilder();
@@ -36,26 +34,28 @@ public class IcsService {
         line(sb, "PRODID:-//radiantcat1//Course2ICS//CN");
         line(sb, "CALSCALE:GREGORIAN");
         line(sb, "METHOD:PUBLISH");
-        line(sb, "X-WR-CALNAME:My Timetable");
+        line(sb, "X-WR-CALNAME:" + props.getCalendarName());
 
         String stamp = LocalDateTime.now(ZoneId.of("UTC")).format(STAMP_FMT);
         String dayTag = request.semesterStart().format(DateTimeFormatter.BASIC_ISO_DATE);
+        String tzid = props.getTimezone();
 
         int i = 0;
         for (CourseItem c : request.courses()) {
             check(c);
+            checkPeriodTables();
             i++;
             LocalDate date = request.semesterStart().plusDays(c.dayOfWeek() - 1);
-            LocalDateTime start = LocalDateTime.of(
-                    date, LocalTime.parse(PERIOD_START[c.startPeriod() - 1]));
-            LocalDateTime end = LocalDateTime.of(
-                    date, LocalTime.parse(PERIOD_END[c.endPeriod() - 1]));
+            LocalDateTime start = LocalDateTime.of(date,
+                    LocalTime.parse(props.getPeriodStart().get(c.startPeriod() - 1)));
+            LocalDateTime end = LocalDateTime.of(date,
+                    LocalTime.parse(props.getPeriodEnd().get(c.endPeriod() - 1)));
 
             line(sb, "BEGIN:VEVENT");
             line(sb, "UID:course-" + dayTag + "-" + i + "@course2ics");
             line(sb, "DTSTAMP:" + stamp);
-            line(sb, "DTSTART;TZID=" + TZID + ":" + start.format(TIME_FMT));
-            line(sb, "DTEND;TZID=" + TZID + ":" + end.format(TIME_FMT));
+            line(sb, "DTSTART;TZID=" + tzid + ":" + start.format(TIME_FMT));
+            line(sb, "DTEND;TZID=" + tzid + ":" + end.format(TIME_FMT));
             line(sb, "RRULE:FREQ=WEEKLY;COUNT=" + c.weeks());
             line(sb, "SUMMARY:" + esc(c.title()));
             line(sb, "LOCATION:" + esc(c.location()));
@@ -64,6 +64,13 @@ public class IcsService {
         }
         line(sb, "END:VCALENDAR");
         return sb.toString();
+    }
+
+    private void checkPeriodTables() {
+        if (props.getPeriodStart().size() < 10 || props.getPeriodEnd().size() < 10) {
+            throw new IllegalStateException(
+                    "作息时间表至少需要 10 节，请检查 course.period-start / period-end 配置");
+        }
     }
 
     private void check(CourseItem c) {
@@ -112,4 +119,3 @@ public class IcsService {
         return out.toString();
     }
 }
-
