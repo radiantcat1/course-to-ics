@@ -1,5 +1,7 @@
 # course-to-ics · 课表转 iCalendar 日历服务
 
+[![CI](https://github.com/radiantcat1/course-to-ics/actions/workflows/ci.yml/badge.svg)](https://github.com/radiantcat1/course-to-ics/actions/workflows/ci.yml)
+
 把一份结构化课表（JSON）转换成标准 `.ics` 日历文件。导入手机 / Outlook / Google 日历后，每门课会按周自动重复，不需要手动录入 16 周。
 
 ## 为什么做这个
@@ -101,6 +103,8 @@ END:VEVENT
 - **时区处理**：`DTSTART;TZID=Asia/Shanghai` 用本地时间 + 时区名，`DTSTAMP` 用 UTC 且带 `Z`，两者规范不同。
 - **ICS 规范细节**：特殊字符（反斜杠、分号、逗号、换行）转义；按 **UTF-8 字节数** 75 字节折行、续行以一个空格开头，避免把中文切半个字；行尾统一 `\r\n`。
 - **构造器注入**：`IcsController` 依赖 `IcsService` 由构造器传入，便于单元测试。
+- **配置驱动**：作息时间表、时区、日历名都在 `application.yml`，通过 `@ConfigurationProperties` 绑定，换学校作息不用改代码。
+- **自动化测试与 CI**：JUnit 5 参数化测试 + MockMvc 集成测试 + 配置绑定测试（17 个用例），GitHub Actions 在每次 push / PR 自动运行，README 展示构建状态。
 
 ## 目录结构
 
