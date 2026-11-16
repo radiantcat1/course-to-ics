@@ -94,6 +94,10 @@ END:VEVENT
 
 ![导入日历后按周重复](docs/calendar-demo.jpg)
 
+## 接口文档
+
+启动服务后访问 <http://localhost:8080/swagger-ui/index.html>，可在页面直接填入请求体调试三个接口；机器可读的 OpenAPI JSON 在 <http://localhost:8080/v3/api-docs>。
+
 ## 设计要点
 
 - **统一响应与全局异常**：`Result<T>` + `@RestControllerAdvice`，业务代码不写 try/catch；HTTP 状态码与业务错误码分层。
