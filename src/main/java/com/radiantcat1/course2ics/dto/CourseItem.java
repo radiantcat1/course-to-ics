@@ -17,14 +17,14 @@ public record CourseItem(
         @Max(value = 7, message = "星期需要 1-7")
         int dayOfWeek,
 
-        @Schema(description = "起始节次，1-10", example = "1")
-        @Min(value = 1, message = "起始节次需要 1-10")
-        @Max(value = 10, message = "起始节次需要 1-10")
+        @Schema(description = "起始节次，需在作息表范围内", example = "1")
+        @Min(value = 1, message = "起始节次至少为 1")
+        @Max(value = 30, message = "起始节次最多 30")
         int startPeriod,
 
-        @Schema(description = "结束节次，1-10", example = "2")
-        @Min(value = 1, message = "结束节次需要 1-10")
-        @Max(value = 10, message = "结束节次需要 1-10")
+        @Schema(description = "结束节次，需在作息表范围内", example = "2")
+        @Min(value = 1, message = "结束节次至少为 1")
+        @Max(value = 30, message = "结束节次最多 30")
         int endPeriod,
 
         @Schema(description = "连续上课周数，1-30", example = "16")

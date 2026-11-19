@@ -5,6 +5,7 @@ import com.radiantcat1.course2ics.common.ErrorCode;
 import com.radiantcat1.course2ics.config.CourseProperties;
 import com.radiantcat1.course2ics.dto.CourseItem;
 import com.radiantcat1.course2ics.dto.CourseRequest;
+import com.radiantcat1.course2ics.dto.PeriodItem;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -40,16 +41,17 @@ public class IcsService {
         String dayTag = request.semesterStart().format(DateTimeFormatter.BASIC_ISO_DATE);
         String tzid = props.getTimezone();
 
+        java.util.List<PeriodItem> periods = request.periods();
+
         int i = 0;
         for (CourseItem c : request.courses()) {
-            check(c);
-            checkPeriodTables();
+            check(c, periods.size());
             i++;
             LocalDate date = request.semesterStart().plusDays(c.dayOfWeek() - 1);
             LocalDateTime start = LocalDateTime.of(date,
-                    LocalTime.parse(props.getPeriodStart().get(c.startPeriod() - 1)));
+                    LocalTime.parse(periods.get(c.startPeriod() - 1).start()));
             LocalDateTime end = LocalDateTime.of(date,
-                    LocalTime.parse(props.getPeriodEnd().get(c.endPeriod() - 1)));
+                    LocalTime.parse(periods.get(c.endPeriod() - 1).end()));
 
             line(sb, "BEGIN:VEVENT");
             line(sb, "UID:course-" + dayTag + "-" + i + "@course2ics");
@@ -66,16 +68,13 @@ public class IcsService {
         return sb.toString();
     }
 
-    private void checkPeriodTables() {
-        if (props.getPeriodStart().size() < 10 || props.getPeriodEnd().size() < 10) {
-            throw new IllegalStateException(
-                    "作息时间表至少需要 10 节，请检查 course.period-start / period-end 配置");
-        }
-    }
-
-    private void check(CourseItem c) {
+    private void check(CourseItem c, int periodCount) {
         if (c.endPeriod() < c.startPeriod()) {
             throw new BizException(ErrorCode.PERIOD_INVALID, "结束节次不能小于起始节次");
+        }
+        if (c.startPeriod() < 1 || c.endPeriod() > periodCount) {
+            throw new BizException(ErrorCode.PERIOD_INVALID,
+                    "课程节次超出作息表范围（当前共 " + periodCount + " 节）");
         }
     }
 

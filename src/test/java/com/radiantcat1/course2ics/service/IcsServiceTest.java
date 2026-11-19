@@ -4,8 +4,10 @@ import com.radiantcat1.course2ics.common.BizException;
 import com.radiantcat1.course2ics.common.ErrorCode;
 import com.radiantcat1.course2ics.dto.CourseItem;
 import com.radiantcat1.course2ics.dto.CourseRequest;
+import com.radiantcat1.course2ics.dto.PeriodItem;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -18,8 +20,21 @@ class IcsServiceTest {
     private final IcsService service =
             new IcsService(new com.radiantcat1.course2ics.config.CourseProperties());
 
+    /** 默认作息表：模拟客户没改时的 10 节 */
+    private List<PeriodItem> defaultPeriods() {
+        List<PeriodItem> p = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            p.add(new PeriodItem(String.format("%02d:00", 8 + i), String.format("%02d:45", 8 + i)));
+        }
+        return p;
+    }
+
     private CourseRequest req(CourseItem... items) {
-        return new CourseRequest(LocalDate.of(2026, 9, 7), List.of(items));
+        return new CourseRequest(LocalDate.of(2026, 9, 7), defaultPeriods(), List.of(items));
+    }
+
+    private CourseRequest reqWithPeriods(List<PeriodItem> periods, CourseItem... items) {
+        return new CourseRequest(LocalDate.of(2026, 9, 7), periods, List.of(items));
     }
 
     private CourseItem course(String title, int day, int start, int end, int weeks) {
@@ -35,8 +50,6 @@ class IcsServiceTest {
                 () -> assertTrue(ics.contains("CALSCALE:GREGORIAN\r\n")),
                 () -> assertTrue(ics.contains("BEGIN:VEVENT\r\n")),
                 () -> assertTrue(ics.contains("RRULE:FREQ=WEEKLY;COUNT=16\r\n")),
-                () -> assertTrue(ics.contains("DTSTART;TZID=Asia/Shanghai:20260907T080000")),
-                () -> assertTrue(ics.contains("DTEND;TZID=Asia/Shanghai:20260907T094000")),
                 () -> assertTrue(ics.trim().endsWith("END:VCALENDAR"))
         );
     }
@@ -101,6 +114,44 @@ class IcsServiceTest {
     void generate_shouldRejectEndPeriodBeforeStart() {
         BizException ex = assertThrows(BizException.class,
                 () -> service.generate(req(course("X", 1, 5, 2, 1))));
+        assertEquals(ErrorCode.PERIOD_INVALID, ex.getErrorCode());
+    }
+
+    // ===== 动态作息表相关的新用例 =====
+
+    @Test
+    void generate_shouldUseTimeFromRequestNotYml() {
+        // 客户自定义：第1节 09:30-10:15，覆盖 yml 里的默认 08:00-08:45
+        List<PeriodItem> custom = List.of(new PeriodItem("09:30", "10:15"));
+        String ics = service.generate(reqWithPeriods(custom, course("X", 1, 1, 1, 1)));
+        assertAll(
+                () -> assertTrue(ics.contains("DTSTART;TZID=Asia/Shanghai:20260907T093000"),
+                        "上课时间应来自请求里的作息表"),
+                () -> assertTrue(ics.contains("DTEND;TZID=Asia/Shanghai:20260907T101500"),
+                        "下课时间应来自请求里的作息表")
+        );
+    }
+
+    @Test
+    void generate_shouldSupportMoreThan10Periods() {
+        // 客户有 12 节课，第 12 节 20:30-21:15
+        List<PeriodItem> p = new ArrayList<>(defaultPeriods());
+        p.add(new PeriodItem("19:55", "20:40"));
+        p.add(new PeriodItem("20:30", "21:15"));
+        String ics = service.generate(reqWithPeriods(p, course("晚课", 1, 12, 12, 16)));
+        assertTrue(ics.contains("DTSTART;TZID=Asia/Shanghai:20260907T203000"),
+                "应支持超过 10 节，并使用第 12 节的时间");
+    }
+
+    @Test
+    void generate_shouldRejectPeriodBeyondSchedule() {
+        // 作息表只有 3 节，课程却排到第 5 节
+        List<PeriodItem> three = List.of(
+                new PeriodItem("08:00", "08:45"),
+                new PeriodItem("08:55", "09:40"),
+                new PeriodItem("10:00", "10:45"));
+        BizException ex = assertThrows(BizException.class,
+                () -> service.generate(reqWithPeriods(three, course("X", 1, 5, 5, 16))));
         assertEquals(ErrorCode.PERIOD_INVALID, ex.getErrorCode());
     }
 }
